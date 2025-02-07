@@ -29,7 +29,7 @@ ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 # Copy package.json and install dependencies
 COPY package*.json ./
 RUN npm install
-RUN npm install puppeteer-extra puppeteer-extra-plugin-stealth
+RUN npm install puppeteer puppeteer-core puppeteer-extra puppeteer-extra-plugin-stealth
 
 # Copy application files
 COPY . .
