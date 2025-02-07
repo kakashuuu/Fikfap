@@ -1,14 +1,14 @@
-import express from 'express';
-import axios from 'axios';
-import cheerio from 'cheerio';
-import cors from 'cors';
+const express = require('express');
+const axios = require('axios');
+const cheerio = require('cheerio');
+const cors = require('cors');
 
 const app = express();
 const port = process.env.PORT || 5000;
 
 app.use(cors());
 
-// Function to fetch all .mp4 video URLs from FikFap
+// Function to fetch .mp4 video URLs
 async function getVideoLinks() {
     const url = 'https://fikfap.com/';
 
@@ -22,7 +22,6 @@ async function getVideoLinks() {
         const $ = cheerio.load(data);
         const videoUrls = [];
 
-        // Find all <video> elements and get their src
         $('video').each((_, element) => {
             const videoSrc = $(element).attr('src');
             if (videoSrc && videoSrc.endsWith('.mp4')) {
