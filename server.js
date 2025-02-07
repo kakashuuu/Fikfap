@@ -10,9 +10,9 @@ const port = process.env.PORT || 5000;
 
 app.use(cors());
 
-// Function to fetch full .mp4 video URLs from FikFap
+// Function to fetch real MP4 URLs from FikFap
 async function fetchMp4Urls() {
-    const url = 'https://fikfap.com/';
+    const url = 'https://fikfap.com/random'; // Random video URL
 
     const browser = await puppeteer.launch({
         headless: "new",
@@ -27,11 +27,9 @@ async function fetchMp4Urls() {
 
         let videoUrls = [];
 
-        // Intercept network requests to capture MP4 URLs
+        // Intercept network requests to find MP4 links
         page.on('response', async (response) => {
             const url = response.url();
-
-            // Only collect video files (ignore audio/init.mp4)
             if (url.includes('.mp4') && !url.includes('/audio/') && !url.includes('init.mp4')) {
                 videoUrls.push(url);
             }
