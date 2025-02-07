@@ -1,70 +1,42 @@
 import express from 'express';
 import puppeteer from 'puppeteer';
-import * as cheerio from 'cheerio';  // Correct import
+import cheerio from 'cheerio';
 
 const app = express();
-const port = 3000;
-const baseURL = 'https://fikfap.com';  // Base URL of the site
+const port = 5000;
 
-// Set up route for homepage
-app.get('/', (req, res) => {
-  res.send('Hello Kakashi');
-});
-
-// Fetch random video from fikfap.com
 app.get('/api/random-video', async (req, res) => {
-  let browser;
+  const postId = 253599; // Change this to any valid post ID or make it dynamic from the request
+  const url = `https://fikfap.com/post/${postId}`;
+
   try {
-    // Launch Puppeteer browser instance
-    browser = await puppeteer.launch({
-      headless: true,
-      executablePath: '/usr/bin/chromium-browser',  // Correct path for chromium in Docker
-      args: ['--no-sandbox', '--disable-setuid-sandbox'],
-    });
-
+    // Launch a headless browser using Puppeteer
+    const browser = await puppeteer.launch();
     const page = await browser.newPage();
-    await page.goto(baseURL);  // Go to the site
+    await page.goto(url, { waitUntil: 'domcontentloaded' });
 
-    // Wait for page content to load
-    await page.waitForSelector('video');  // Wait for video element
-
+    // Scrape the page content
     const content = await page.content();
     const $ = cheerio.load(content);
 
-    // Extract video URLs (adjust selector if needed)
-    const videoURLs = [];
-    $('video').each((index, element) => {
-      let videoURL = $(element).attr('src');
-      if (videoURL) {
-        // Check if videoURL is a relative URL, and prepend baseURL if necessary
-        if (videoURL.startsWith('/')) {
-          videoURL = baseURL + videoURL;
-        }
-        videoURLs.push(videoURL);
-      }
-    });
+    // Look for the video URL
+    const videoURL = $('video').attr('src'); // Extract the URL from the <video> tag
 
-    // If no videos found, return an error
-    if (videoURLs.length === 0) {
-      return res.json({ error: 'No videos found' });
+    if (!videoURL) {
+      return res.status(404).json({ error: 'Video not found on the page' });
     }
 
-    // Pick a random video URL
-    const randomVideo = videoURLs[Math.floor(Math.random() * videoURLs.length)];
+    // Return the video URL
+    res.json({ video: videoURL });
 
-    // Return the random video URL as JSON response
-    res.json({ video: randomVideo });
+    // Close the browser
+    await browser.close();
   } catch (error) {
     console.error('Error fetching video:', error);
     res.status(500).json({ error: 'Internal server error', details: error.message });
-  } finally {
-    if (browser) {
-      await browser.close();
-    }
   }
 });
 
-// Start server
 app.listen(port, () => {
   console.log(`Server running at http://localhost:${port}`);
 });
