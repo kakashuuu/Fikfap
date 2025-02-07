@@ -6,33 +6,29 @@ const PORT = process.env.PORT || 5000;
 
 app.get('/random-video', async (req, res) => {
   try {
-    // Launch Puppeteer using your system-installed Chrome/Chromium.
+    console.log("Launching Puppeteer...");
     const browser = await puppeteer.launch({
-      executablePath: process.env.CHROME_PATH || '/usr/bin/google-chrome-stable',
+      executablePath: process.env.CHROME_PATH || '/usr/bin/google-chrome-stable', // Adjust path if needed
       headless: 'new',
       args: ['--no-sandbox', '--disable-setuid-sandbox']
     });
     
+    console.log("Browser launched, navigating to fikfap.com...");
     const page = await browser.newPage();
     
-    // Navigate to the homepage of fikfap.com.
+    // Navigate to the fikfap homepage
     await page.goto('https://fikfap.com', { waitUntil: 'networkidle2' });
     
-    // Scrape the page for links that match the /post/<number> pattern.
+    console.log("Scraping video links...");
     const videos = await page.evaluate(() => {
-      // Get all anchor tags on the page.
       const anchors = Array.from(document.querySelectorAll('a'));
-      
-      // Filter anchors whose href matches "/post/<number>" (handles both relative and absolute URLs).
       const videoAnchors = anchors.filter(a => {
         const href = a.getAttribute('href');
         return href && (/^\/post\/\d+/.test(href) || /^https:\/\/fikfap\.com\/post\/\d+/.test(href));
       });
-      
-      // Map to a simpler object with a title and URL.
+
       return videoAnchors.map(a => {
         const href = a.getAttribute('href');
-        // Try to get a title attribute; otherwise, use trimmed innerText.
         const title = a.getAttribute('title') || a.innerText.trim() || 'Random Video';
         return { title, url: href };
       });
@@ -41,23 +37,23 @@ app.get('/random-video', async (req, res) => {
     await browser.close();
     
     if (!videos.length) {
+      console.error("No video links found.");
       return res.status(404).json({ error: 'No video posts found.' });
     }
     
-    // Pick one video at random.
     const randomIndex = Math.floor(Math.random() * videos.length);
     let randomVideo = videos[randomIndex];
     
-    // If the URL is relative, prepend the domain.
     if (randomVideo.url.startsWith('/')) {
       randomVideo.url = `https://fikfap.com${randomVideo.url}`;
     }
     
+    console.log("Sending random video response...");
     res.json(randomVideo);
     
   } catch (error) {
-    console.error('Error fetching random video:', error);
-    res.status(500).json({ error: 'Error fetching random video.' });
+    console.error('Error:', error.message);
+    res.status(500).json({ error: 'Error fetching random video.', details: error.message });
   }
 });
 
