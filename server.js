@@ -1,56 +1,39 @@
 import express from 'express';
-import axios from 'axios';
-import * as cheerio from 'cheerio'; // Fixed cheerio import
-import dotenv from 'dotenv';
-import cors from 'cors';
-import fs from 'fs';
-import morgan from 'morgan';
-
-dotenv.config();
+import puppeteer from 'puppeteer';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(cors());
-app.use(morgan('dev'));
-
-// Home route
 app.get('/', (req, res) => {
     res.send('Hello Kakashi');
 });
 
-// Fetch random videos from fikfap.com
-app.get('/api/random-video', async (req, res) => {
+app.get('/random-video', async (req, res) => {
     try {
-        const response = await axios.get('https://fikfap.com', {
-            headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
-            },
+        const browser = await puppeteer.launch({ headless: true });
+        const page = await browser.newPage();
+        
+        await page.goto('https://fikfap.com/', { waitUntil: 'networkidle2' });
+
+        const videoUrls = await page.evaluate(() => {
+            return Array.from(document.querySelectorAll('video source')).map(v => v.src);
         });
 
-        const $ = cheerio.load(response.data);
-        const videos = [];
+        await browser.close();
 
-        $('video source').each((_, element) => {
-            const videoUrl = $(element).attr('src');
-            if (videoUrl) videos.push(videoUrl);
-        });
-
-        if (videos.length === 0) {
+        if (videoUrls.length === 0) {
             return res.status(404).json({ error: 'No videos found' });
         }
 
-        // Pick a random video
-        const randomVideo = videos[Math.floor(Math.random() * videos.length)];
+        const randomVideo = videoUrls[Math.floor(Math.random() * videoUrls.length)];
         res.json({ video: randomVideo });
 
     } catch (error) {
-        console.error('Error fetching videos:', error);
-        res.status(500).json({ error: 'Failed to fetch videos' });
+        console.error('Error:', error);
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
-// Start server
 app.listen(PORT, () => {
-    console.log(`🚀 Server running at http://localhost:${PORT}`);
+    console.log(`Server running on http://localhost:${PORT}`);
 });
