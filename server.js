@@ -1,50 +1,65 @@
 import express from 'express';
 import puppeteer from 'puppeteer';
+import cheerio from 'cheerio';
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const port = 3000;
 
-// Welcome page
+// Set up route for homepage
 app.get('/', (req, res) => {
-    res.send('Hello Kakashi');
+  res.send('Hello Kakashi');
 });
 
-// Random video endpoint
+// Fetch random video from fikfap.com
 app.get('/api/random-video', async (req, res) => {
-    try {
-        const browser = await puppeteer.launch({ headless: true });
-        const page = await browser.newPage();
-        
-        await page.goto('https://fikfap.com/', { waitUntil: 'networkidle2' });
+  let browser;
+  try {
+    // Launch Puppeteer browser instance
+    browser = await puppeteer.launch({
+      headless: true,
+      executablePath: '/usr/bin/chromium-browser',  // Use the correct path to chromium (Docker set up)
+      args: ['--no-sandbox', '--disable-setuid-sandbox'],
+    });
 
-        // Log page content for debugging
-        const pageContent = await page.content();
-        console.log("Page Content Loaded:", pageContent.substring(0, 200));  // Print first 200 characters for debugging
+    const page = await browser.newPage();
+    await page.goto('https://fikfap.com');  // Example URL
 
-        // Extract video URLs from the page
-        const videoUrls = await page.evaluate(() => {
-            const videoElements = Array.from(document.querySelectorAll('video source'));
-            return videoElements.map(v => v.src).filter(src => src.includes('http'));
-        });
+    // Wait for page content to load
+    await page.waitForSelector('video');  // Adjust based on what video element you need
 
-        console.log("Video URLs found:", videoUrls); // Log the found video URLs
+    const content = await page.content();
+    const $ = cheerio.load(content);
 
-        await browser.close();
+    // Extract video URLs (you may need to adjust selector based on actual website structure)
+    const videoURLs = [];
+    $('video').each((index, element) => {
+      const videoURL = $(element).attr('src');
+      if (videoURL) {
+        videoURLs.push(videoURL);
+      }
+    });
 
-        if (videoUrls.length === 0) {
-            return res.status(404).json({ error: 'No videos found' });
-        }
-
-        const randomVideo = videoUrls[Math.floor(Math.random() * videoUrls.length)];
-        res.json({ video: randomVideo });
-
-    } catch (error) {
-        console.error('Error:', error); // Log the full error for debugging
-        res.status(500).json({ error: 'Internal server error', details: error.message });
+    // If no videos found, return an error
+    if (videoURLs.length === 0) {
+      return res.json({ error: 'No videos found' });
     }
+
+    // Pick a random video URL
+    const randomVideo = videoURLs[Math.floor(Math.random() * videoURLs.length)];
+
+    // Return random video URL as JSON response
+    res.json({ video: randomVideo });
+  } catch (error) {
+    console.error('Error fetching video:', error);
+    res.status(500).json({ error: 'Internal server error', details: error.message });
+  } finally {
+    if (browser) {
+      await browser.close();
+    }
+  }
 });
 
-// Start the server
-app.listen(PORT, () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+// Start server
+app.listen(port, () => {
+  console.log(`Server running at http://localhost:${port}`);
 });
