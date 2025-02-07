@@ -1,45 +1,55 @@
 const express = require('express');
-const axios = require('axios');
-const cheerio = require('cheerio');
+const puppeteer = require('puppeteer-extra');
+const StealthPlugin = require('puppeteer-extra-plugin-stealth');
 const cors = require('cors');
+
+puppeteer.use(StealthPlugin());
 
 const app = express();
 const port = process.env.PORT || 5000;
 
 app.use(cors());
 
-// Function to fetch .mp4 video URLs from FikFap
+// Function to fetch .mp4 video URLs from FikFap by intercepting network requests
 async function fetchMp4Urls() {
     const url = 'https://fikfap.com/';
 
+    const browser = await puppeteer.launch({
+        headless: "new",
+        args: ['--no-sandbox', '--disable-setuid-sandbox']
+    });
+
     try {
-        // Fetch HTML content
-        const response = await axios.get(url, {
-            headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        const page = await browser.newPage();
+        await page.setUserAgent(
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        );
+
+        let videoUrls = [];
+
+        // Intercept network requests to capture MP4 URLs
+        page.on('response', async (response) => {
+            const url = response.url();
+            if (url.endsWith('.mp4')) {
+                videoUrls.push(url);
             }
         });
 
-        // Load HTML into Cheerio
-        const $ = cheerio.load(response.data);
-        const mp4Urls = [];
+        await page.goto(url, { waitUntil: 'networkidle2' });
 
-        // Find all <video> elements with .mp4 URLs
-        $('video').each((_, element) => {
-            const videoSrc = $(element).attr('src');
-            if (videoSrc && videoSrc.endsWith('.mp4')) {
-                mp4Urls.push(videoSrc.startsWith('http') ? videoSrc : `https://fikfap.com${videoSrc}`);
-            }
-        });
+        await new Promise(resolve => setTimeout(resolve, 5000)); // Wait for network requests
 
-        return mp4Urls.length > 0 ? mp4Urls : null;
+        await browser.close();
+
+        return videoUrls.length > 0 ? videoUrls : null;
     } catch (error) {
         console.error(`Error fetching MP4 URLs: ${error.message}`);
+        await browser.close();
         return null;
     }
 }
 
-// API Route to return MP4 links
+// API Route
 app.get('/video-links', async (req, res) => {
     try {
         const videoLinks = await fetchMp4Urls();
