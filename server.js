@@ -10,7 +10,7 @@ const port = process.env.PORT || 5000;
 
 app.use(cors());
 
-// Function to fetch .mp4 video URLs from FikFap by intercepting network requests
+// Function to fetch full .mp4 video URLs from FikFap
 async function fetchMp4Urls() {
     const url = 'https://fikfap.com/';
 
@@ -30,7 +30,9 @@ async function fetchMp4Urls() {
         // Intercept network requests to capture MP4 URLs
         page.on('response', async (response) => {
             const url = response.url();
-            if (url.endsWith('.mp4')) {
+
+            // Only collect video files (ignore audio/init.mp4)
+            if (url.includes('.mp4') && !url.includes('/audio/') && !url.includes('init.mp4')) {
                 videoUrls.push(url);
             }
         });
@@ -40,6 +42,9 @@ async function fetchMp4Urls() {
         await new Promise(resolve => setTimeout(resolve, 5000)); // Wait for network requests
 
         await browser.close();
+
+        // Remove duplicate URLs
+        videoUrls = [...new Set(videoUrls)];
 
         return videoUrls.length > 0 ? videoUrls : null;
     } catch (error) {
@@ -56,7 +61,7 @@ app.get('/video-links', async (req, res) => {
         if (videoLinks) {
             res.json({ videos: videoLinks });
         } else {
-            res.status(500).json({ error: 'No .mp4 videos found or site blocking bots.' });
+            res.status(500).json({ error: 'No full .mp4 videos found or site blocking bots.' });
         }
     } catch (error) {
         res.status(500).json({ error: 'Server error.', details: error.message });
