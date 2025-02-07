@@ -3,18 +3,18 @@ import puppeteer from 'puppeteer-extra';
 import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 import cors from 'cors';
 
-// Use Puppeteer's stealth mode
+// Enable Puppeteer's stealth mode
 puppeteer.use(StealthPlugin());
 
 const app = express();
-const port = process.env.PORT || 5000; // Use dynamic port to avoid conflicts
+const port = process.env.PORT || 5000; // Dynamic port to prevent conflicts
 
 app.use(cors());
 
-// Function to fetch a random video URL
+// Function to fetch a direct .mp4/.mkv video URL
 async function getRandomVideo() {
     const url = 'https://fikfap.com/random';
-    
+
     const browser = await puppeteer.launch({
         executablePath: '/usr/bin/chromium-browser', // Use system-installed Chromium
         headless: "new",
@@ -36,16 +36,20 @@ async function getRandomVideo() {
 
         const videoUrl = await page.evaluate(() => {
             const videoElement = document.querySelector('video');
-            return videoElement ? videoElement.src : null;
+
+            if (!videoElement) return null; // No video found
+
+            const src = videoElement.src;
+
+            // Ensure it's a direct .mp4 or .mkv URL
+            if (src && (src.endsWith('.mp4') || src.endsWith('.mkv'))) {
+                return src;
+            }
+
+            return null; // Ignore blob URLs or invalid links
         });
 
         await browser.close();
-
-        // Handle blob URLs (not playable outside the browser)
-        if (videoUrl && videoUrl.startsWith('blob:')) {
-            return null;
-        }
-
         return videoUrl;
     } catch (error) {
         console.error('Error fetching video:', error);
@@ -61,7 +65,7 @@ app.get('/random-video', async (req, res) => {
         if (videoUrl) {
             res.json({ videoUrl });
         } else {
-            res.status(500).json({ error: 'No playable video found. The site may be blocking bots.' });
+            res.status(500).json({ error: 'No direct .mp4 or .mkv video found.' });
         }
     } catch (error) {
         res.status(500).json({ error: 'Server error.', details: error.message });
