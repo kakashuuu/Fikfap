@@ -1,71 +1,50 @@
 import express from 'express';
-import puppeteer from 'puppeteer-extra';
-import StealthPlugin from 'puppeteer-extra-plugin-stealth';
+import axios from 'axios';
+import cheerio from 'cheerio';
 import cors from 'cors';
 
-// Enable Puppeteer's stealth mode
-puppeteer.use(StealthPlugin());
-
 const app = express();
-const port = process.env.PORT || 5000; // Dynamic port to prevent conflicts
+const port = process.env.PORT || 5000;
 
 app.use(cors());
 
-// Function to fetch a direct .mp4/.mkv video URL
-async function getRandomVideo() {
-    const url = 'https://fikfap.com/random';
-
-    const browser = await puppeteer.launch({
-        executablePath: '/usr/bin/chromium-browser', // Use system-installed Chromium
-        headless: "new",
-        args: ['--no-sandbox', '--disable-setuid-sandbox']
-    });
+// Function to fetch all .mp4 video URLs from FikFap
+async function getVideoLinks() {
+    const url = 'https://fikfap.com/';
 
     try {
-        const page = await browser.newPage();
-
-        // Set a user-agent to mimic a real browser
-        await page.setUserAgent(
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-        );
-
-        await page.goto(url, { waitUntil: 'domcontentloaded' });
-
-        // Wait for the video element to load
-        await page.waitForSelector('video', { timeout: 10000 });
-
-        const videoUrl = await page.evaluate(() => {
-            const videoElement = document.querySelector('video');
-
-            if (!videoElement) return null; // No video found
-
-            const src = videoElement.src;
-
-            // Ensure it's a direct .mp4 or .mkv URL
-            if (src && (src.endsWith('.mp4') || src.endsWith('.mkv'))) {
-                return src;
+        const { data } = await axios.get(url, {
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
             }
-
-            return null; // Ignore blob URLs or invalid links
         });
 
-        await browser.close();
-        return videoUrl;
+        const $ = cheerio.load(data);
+        const videoUrls = [];
+
+        // Find all <video> elements and get their src
+        $('video').each((_, element) => {
+            const videoSrc = $(element).attr('src');
+            if (videoSrc && videoSrc.endsWith('.mp4')) {
+                videoUrls.push(videoSrc.startsWith('http') ? videoSrc : `https://fikfap.com${videoSrc}`);
+            }
+        });
+
+        return videoUrls.length > 0 ? videoUrls : null;
     } catch (error) {
-        console.error('Error fetching video:', error);
-        await browser.close();
+        console.error('Error fetching video links:', error);
         return null;
     }
 }
 
 // API Route
-app.get('/random-video', async (req, res) => {
+app.get('/video-links', async (req, res) => {
     try {
-        const videoUrl = await getRandomVideo();
-        if (videoUrl) {
-            res.json({ videoUrl });
+        const videoLinks = await getVideoLinks();
+        if (videoLinks) {
+            res.json({ videos: videoLinks });
         } else {
-            res.status(500).json({ error: 'No direct .mp4 or .mkv video found.' });
+            res.status(500).json({ error: 'No .mp4 videos found or site blocking bots.' });
         }
     } catch (error) {
         res.status(500).json({ error: 'Server error.', details: error.message });
