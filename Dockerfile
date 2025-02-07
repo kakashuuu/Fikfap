@@ -19,7 +19,7 @@ RUN apt-get update && apt-get install -y \
 
 RUN npm install puppeteer puppeteer-extra puppeteer-extra-plugin-stealth
 
-RUN sudo apt install -y chromium-browser
+RUN apt-get install chromium-browser
 
 # Copy the rest of the app files
 COPY . .
