@@ -3,7 +3,7 @@ import puppeteer from 'puppeteer';
 import cors from 'cors';
 
 const app = express();
-const PORT = process.env.PORT || 2026;
+const PORT = process.env.PORT || 3000;
 
 app.use(cors());
 
@@ -11,7 +11,7 @@ app.get('/api/random-video', async (req, res) => {
     let browser;
     try {
         browser = await puppeteer.launch({
-            headless: "new",  // Use "true" for full headless mode
+            headless: 'new', // Use "true" for full headless mode
             args: ['--no-sandbox', '--disable-setuid-sandbox']
         });
 
