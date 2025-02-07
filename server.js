@@ -1,12 +1,12 @@
-import express from 'express';
-import puppeteer from 'puppeteer';
-import fetch from 'node-fetch';
+const express = require('express');
+const puppeteer = require('puppeteer');
+const fetch = require('node-fetch');
 
 const app = express();
 const port = 5000;
 
 // Helper function to get a random video URL from fikfap.com
-async function getRandomVideo(): Promise<string | null> {
+async function getRandomVideo() {
     const url = 'https://fikfap.com/random';
     const browser = await puppeteer.launch({
         executablePath: '/usr/bin/chromium-browser', // Path to Chromium, modify if needed
