@@ -1,54 +1,48 @@
 const express = require('express');
-const puppeteer = require('puppeteer-extra');
-const StealthPlugin = require('puppeteer-extra-plugin-stealth');
+const axios = require('axios');
+const cheerio = require('cheerio');
 const cors = require('cors');
-
-puppeteer.use(StealthPlugin());
 
 const app = express();
 const port = process.env.PORT || 5000;
 
 app.use(cors());
 
-// Function to scrape .mp4 video links using Puppeteer
-async function getVideoLinks() {
+// Function to fetch .mp4 video URLs from FikFap
+async function fetchMp4Urls() {
     const url = 'https://fikfap.com/';
 
-    const browser = await puppeteer.launch({
-        headless: "new",
-        args: ['--no-sandbox', '--disable-setuid-sandbox']
-    });
-
     try {
-        const page = await browser.newPage();
-
-        // Set a real browser user-agent
-        await page.setUserAgent(
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-        );
-
-        await page.goto(url, { waitUntil: 'networkidle2' });
-
-        // Extract video URLs
-        const videoUrls = await page.evaluate(() => {
-            return Array.from(document.querySelectorAll('video')).map(video => video.src)
-                .filter(src => src.endsWith('.mp4'));
+        // Fetch HTML content
+        const response = await axios.get(url, {
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+            }
         });
 
-        await browser.close();
+        // Load HTML into Cheerio
+        const $ = cheerio.load(response.data);
+        const mp4Urls = [];
 
-        return videoUrls.length > 0 ? videoUrls : null;
+        // Find all <video> elements with .mp4 URLs
+        $('video').each((_, element) => {
+            const videoSrc = $(element).attr('src');
+            if (videoSrc && videoSrc.endsWith('.mp4')) {
+                mp4Urls.push(videoSrc.startsWith('http') ? videoSrc : `https://fikfap.com${videoSrc}`);
+            }
+        });
+
+        return mp4Urls.length > 0 ? mp4Urls : null;
     } catch (error) {
-        console.error('Error fetching video links:', error);
-        await browser.close();
+        console.error(`Error fetching MP4 URLs: ${error.message}`);
         return null;
     }
 }
 
-// API Route
+// API Route to return MP4 links
 app.get('/video-links', async (req, res) => {
     try {
-        const videoLinks = await getVideoLinks();
+        const videoLinks = await fetchMp4Urls();
         if (videoLinks) {
             res.json({ videos: videoLinks });
         } else {
