@@ -3,24 +3,23 @@ import puppeteer from 'puppeteer-extra';
 import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 import cors from 'cors';
 
-puppeteer.use(StealthPlugin()); // Enable stealth mode
+puppeteer.use(StealthPlugin());
 
 const app = express();
 const port = 5000;
 
-app.use(cors()); // Allow cross-origin requests
+app.use(cors());
 
-// Helper function to fetch a random video URL
 async function getRandomVideo() {
     const url = 'https://fikfap.com/random';
     const browser = await puppeteer.launch({
-        headless: true,
+        headless: "new",
         args: ['--no-sandbox', '--disable-setuid-sandbox']
     });
 
     try {
         const page = await browser.newPage();
-        await page.goto(url, { waitUntil: 'networkidle2' });
+        await page.goto(url, { waitUntil: 'domcontentloaded' });
 
         const videoUrl = await page.evaluate(() => {
             const videoElement = document.querySelector('video');
@@ -28,6 +27,12 @@ async function getRandomVideo() {
         });
 
         await browser.close();
+
+        // Handling Blob URLs (these are not directly playable outside the browser)
+        if (videoUrl && videoUrl.startsWith('blob:')) {
+            return null; // Blob URLs cannot be used directly
+        }
+
         return videoUrl;
     } catch (error) {
         console.error('Error fetching video:', error);
@@ -42,7 +47,7 @@ app.get('/random-video', async (req, res) => {
         if (videoUrl) {
             res.json({ videoUrl });
         } else {
-            res.status(500).json({ error: 'No video found.' });
+            res.status(500).json({ error: 'No playable video found.' });
         }
     } catch (error) {
         res.status(500).json({ error: 'Server error.', details: error.message });
