@@ -1,0 +1,10 @@
+services:
+  - name: fikfap-scraper
+    type: web
+    runtime: docker
+    region: oregon  # Change if needed
+    plan: free
+    envVars:
+      - key: PORT
+        value: 5000
+    dockerfilePath: ./Dockerfile
