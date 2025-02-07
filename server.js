@@ -17,10 +17,17 @@ app.get('/api/random-video', async (req, res) => {
         
         await page.goto('https://fikfap.com/', { waitUntil: 'networkidle2' });
 
+        // Log page content for debugging
+        const pageContent = await page.content();
+        console.log("Page Content Loaded:", pageContent.substring(0, 200));  // Print first 200 characters for debugging
+
         // Extract video URLs from the page
         const videoUrls = await page.evaluate(() => {
-            return Array.from(document.querySelectorAll('video source')).map(v => v.src);
+            const videoElements = Array.from(document.querySelectorAll('video source'));
+            return videoElements.map(v => v.src).filter(src => src.includes('http'));
         });
+
+        console.log("Video URLs found:", videoUrls); // Log the found video URLs
 
         await browser.close();
 
@@ -32,8 +39,8 @@ app.get('/api/random-video', async (req, res) => {
         res.json({ video: randomVideo });
 
     } catch (error) {
-        console.error('Error:', error);
-        res.status(500).json({ error: 'Internal server error' });
+        console.error('Error:', error); // Log the full error for debugging
+        res.status(500).json({ error: 'Internal server error', details: error.message });
     }
 });
 
