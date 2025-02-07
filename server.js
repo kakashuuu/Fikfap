@@ -4,17 +4,20 @@ import puppeteer from 'puppeteer';
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Welcome page
 app.get('/', (req, res) => {
     res.send('Hello Kakashi');
 });
 
-app.get('/random-video', async (req, res) => {
+// Random video endpoint
+app.get('/api/random-video', async (req, res) => {
     try {
         const browser = await puppeteer.launch({ headless: true });
         const page = await browser.newPage();
         
         await page.goto('https://fikfap.com/', { waitUntil: 'networkidle2' });
 
+        // Extract video URLs from the page
         const videoUrls = await page.evaluate(() => {
             return Array.from(document.querySelectorAll('video source')).map(v => v.src);
         });
@@ -34,6 +37,7 @@ app.get('/random-video', async (req, res) => {
     }
 });
 
+// Start the server
 app.listen(PORT, () => {
     console.log(`Server running on http://localhost:${PORT}`);
 });
