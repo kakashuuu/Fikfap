@@ -17,6 +17,8 @@ RUN apt-get update && apt-get install -y \
     libpangocairo-1.0-0 libpango-1.0-0 libgtk-3-0 libxss1 \
     --no-install-recommends && rm -rf /var/lib/apt/lists/*
 
+RUN npm install puppeteer puppeteer-extra puppeteer-extra-plugin-stealth
+
 # Copy the rest of the app files
 COPY . .
 
