@@ -1,6 +1,5 @@
-const express = require('express');
-const puppeteer = require('puppeteer');
-const fetch = require('node-fetch');
+import express from 'express';
+import puppeteer from 'puppeteer';
 
 const app = express();
 const port = 5000;
@@ -19,7 +18,6 @@ async function getRandomVideo() {
         await page.goto(url, { waitUntil: 'domcontentloaded' });
 
         const videoUrl = await page.evaluate(() => {
-            // Assuming the random video link is inside a post URL in the page.
             const videoLink = document.querySelector('a[href^="https://fikfap.com/post/"]');
             return videoLink ? videoLink.href : null;
         });
