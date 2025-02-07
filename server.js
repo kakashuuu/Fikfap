@@ -1,50 +1,41 @@
-import puppeteer from 'puppeteer';
-import * as cheerio from 'cheerio';  // Correct import for cheerio without 'default'
+const express = require('express');
+const puppeteer = require('puppeteer');
 
 const app = express();
-const port = 5000;
 
-function getRandomPostId() {
-  return Math.floor(Math.random() * 100000) + 1;
-}
-
-app.get('/api/random-video', async (req, res) => {
-  const postId = getRandomPostId();
-  const url = `https://fikfap.com/post/${postId}`;
-
+// Example endpoint to fetch a page (adjust URL and logic as needed)
+app.get('/video', async (req, res) => {
   try {
     const browser = await puppeteer.launch({
-      headless: true,
-      executablePath: '/usr/bin/chromium-browser' // Specify the correct Chromium path
+      // Use the system-installed Chrome/Chromium executable.
+      // Update the executablePath if your Chrome/Chromium is located elsewhere.
+      executablePath: '/usr/bin/google-chrome-stable',
+      
+      // Opt into the new headless mode
+      headless: 'new',
+      
+      // Common flags for running in Linux environments
+      args: ['--no-sandbox', '--disable-setuid-sandbox']
     });
+
     const page = await browser.newPage();
-    await page.goto(url, { waitUntil: 'domcontentloaded' });
 
+    // Replace the URL with the desired target (e.g., the video page)
+    await page.goto('https://example.com', { waitUntil: 'networkidle2' });
+    
+    // Here you can add any page interactions or processing code
     const content = await page.content();
-    const $ = cheerio.load(content);
-    const videoURL = $('video').attr('src');
-
-    if (!videoURL) {
-      return res.status(404).json({
-        error: 'No video found for this post.',
-        postId: postId
-      });
-    }
-
-    res.json({
-      video: videoURL
-    });
 
     await browser.close();
+    
+    res.send(content);
   } catch (error) {
-    console.error('Error fetching video:', error);
-    res.status(500).json({
-      error: 'Internal server error',
-      details: error.message
-    });
+    console.error("Error fetching video:", error);
+    res.status(500).send("Error fetching video.");
   }
 });
 
-app.listen(port, () => {
-  console.log(`Server is running at http://localhost:${port}`);
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => {
+  console.log(`Server is running at http://localhost:${PORT}`);
 });
