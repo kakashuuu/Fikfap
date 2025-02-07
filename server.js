@@ -1,9 +1,9 @@
 import express from 'express';
 import puppeteer from 'puppeteer';
-import cheerio from 'cheerio';  // Import cheerio without 'default'
+import * as cheerio from 'cheerio';  // Correct import for cheerio without 'default'
 
 const app = express();
-const port = 3000;
+const port = 5000;
 
 // Helper function to generate a random post ID between 1 and 100000
 function getRandomPostId() {
