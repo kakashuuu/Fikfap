@@ -1,53 +1,66 @@
-import Fastify from 'fastify';
+import express from 'express';
 import puppeteer from 'puppeteer';
 
-const fastify = Fastify({
-  logger: true,
-});
+const app = express();
+const PORT = process.env.PORT || 5000;
 
-// GET /video?url=<target-URL>
-// Example: http://localhost:5000/video?url=https://example.com
-fastify.get('/video', async (request, reply) => {
-  const { url } = request.query;
-  if (!url) {
-    reply.status(400).send({ error: 'Missing required query parameter: url' });
-    return;
-  }
-
+app.get('/random-video', async (req, res) => {
   try {
+    // Launch Puppeteer using your system-installed Chrome/Chromium.
     const browser = await puppeteer.launch({
-      // Use the system-installed Chrome/Chromium executable.
-      // You can override this path using the CHROME_PATH environment variable.
       executablePath: process.env.CHROME_PATH || '/usr/bin/google-chrome-stable',
-      // Opt into the new headless mode
       headless: 'new',
-      // Additional arguments useful in Linux environments
       args: ['--no-sandbox', '--disable-setuid-sandbox']
     });
+    
     const page = await browser.newPage();
-
-    // Navigate to the provided URL and wait until the network is idle
-    await page.goto(url, { waitUntil: 'networkidle2' });
-    const content = await page.content();
-
+    
+    // Navigate to the homepage of fikfap.com.
+    await page.goto('https://fikfap.com', { waitUntil: 'networkidle2' });
+    
+    // Scrape the page for links that match the /post/<number> pattern.
+    const videos = await page.evaluate(() => {
+      // Get all anchor tags on the page.
+      const anchors = Array.from(document.querySelectorAll('a'));
+      
+      // Filter anchors whose href matches "/post/<number>" (handles both relative and absolute URLs).
+      const videoAnchors = anchors.filter(a => {
+        const href = a.getAttribute('href');
+        return href && (/^\/post\/\d+/.test(href) || /^https:\/\/fikfap\.com\/post\/\d+/.test(href));
+      });
+      
+      // Map to a simpler object with a title and URL.
+      return videoAnchors.map(a => {
+        const href = a.getAttribute('href');
+        // Try to get a title attribute; otherwise, use trimmed innerText.
+        const title = a.getAttribute('title') || a.innerText.trim() || 'Random Video';
+        return { title, url: href };
+      });
+    });
+    
     await browser.close();
-
-    reply.send({ content });
+    
+    if (!videos.length) {
+      return res.status(404).json({ error: 'No video posts found.' });
+    }
+    
+    // Pick one video at random.
+    const randomIndex = Math.floor(Math.random() * videos.length);
+    let randomVideo = videos[randomIndex];
+    
+    // If the URL is relative, prepend the domain.
+    if (randomVideo.url.startsWith('/')) {
+      randomVideo.url = `https://fikfap.com${randomVideo.url}`;
+    }
+    
+    res.json(randomVideo);
+    
   } catch (error) {
-    fastify.log.error(error);
-    reply.status(500).send({ error: 'Failed to fetch video content.' });
+    console.error('Error fetching random video:', error);
+    res.status(500).json({ error: 'Error fetching random video.' });
   }
 });
 
-const start = async () => {
-  try {
-    // Listen on port 5000; adjust if needed
-    await fastify.listen({ port: 5000, host: '0.0.0.0' });
-    fastify.log.info(`Server is running at http://localhost:5000`);
-  } catch (err) {
-    fastify.log.error(err);
-    process.exit(1);
-  }
-};
-
-start();
+app.listen(PORT, () => {
+  console.log(`Server is running on http://localhost:${PORT}`);
+});
