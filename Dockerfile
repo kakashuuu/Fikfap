@@ -1,42 +1,27 @@
-FROM node:18-slim
+# Use official Node.js image
+FROM node:18-bullseye
 
-# Install dependencies for Puppeteer
-RUN apt-get update && apt-get install -y \
-  wget \
-  curl \
-  ca-certificates \
-  fonts-liberation \
-  libappindicator3-1 \
-  libasound2 \
-  libatk-bridge2.0-0 \
-  libatk1.0-0 \
-  libcups2 \
-  libdbus-1-3 \
-  libgdk-pixbuf2.0-0 \
-  libnspr4 \
-  libnss3 \
-  libx11-xcb1 \
-  libxcomposite1 \
-  libxdamage1 \
-  libxrandr2 \
-  xdg-utils \
-  --no-install-recommends \
-  && rm -rf /var/lib/apt/lists/*
+# Set the working directory
+WORKDIR /app
 
-# Set working directory
-WORKDIR /usr/src/app
-
-# Copy application files
+# Copy package.json and package-lock.json
 COPY package*.json ./
 
 # Install dependencies
 RUN npm install
 
-# Copy the rest of the application
+# Install Chromium dependencies for Puppeteer
+RUN apt-get update && apt-get install -y \
+    libnss3 libatk1.0-0 libatk-bridge2.0-0 libcups2 libx11-xcb1 \
+    libxcomposite1 libxdamage1 libxrandr2 libgbm1 libasound2 \
+    libpangocairo-1.0-0 libpango-1.0-0 libgtk-3-0 libxss1 \
+    --no-install-recommends && rm -rf /var/lib/apt/lists/*
+
+# Copy the rest of the app files
 COPY . .
 
-# Expose the port
-EXPOSE 3000
+# Expose the app port
+EXPOSE 5000
 
-# Run the application
+# Start the application
 CMD ["node", "server.js"]
