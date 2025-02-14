@@ -2,23 +2,20 @@ const express = require('express');
 const puppeteer = require('puppeteer');
 
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 3000;
 
 async function fetchRandomCardId() {
-    const browser = await puppeteer.launch({ headless: true });
+    const browser = await puppeteer.launch({ 
+        headless: true,
+        args: ['--no-sandbox', '--disable-setuid-sandbox']
+    });
     const page = await browser.newPage();
-    
-    // Navigate to the Shoob.gg cards page and wait for the content to load
     await page.goto('https://shoob.gg/cards/', { waitUntil: 'domcontentloaded' });
-
-    // Wait for the card links to be present on the page
     await page.waitForSelector('.card a');
 
-    // Extract all card links and parse their IDs
     const cardIds = await page.evaluate(() => {
-        const links = Array.from(document.querySelectorAll('.card a'));
-        console.log(links.map(el => el.href)); // Log the links to the console for debugging
-        return links.map(el => el.href.split('/').pop()); // Extract and return card IDs
+        return Array.from(document.querySelectorAll('.card a'))
+            .map(el => el.href.split('/').pop());
     });
 
     await browser.close();
@@ -32,7 +29,7 @@ app.get('/random-card', async (req, res) => {
         const id = await fetchRandomCardId();
         res.json({ id, url: `https://shoob.gg/cards/info/${id}` });
     } catch (error) {
-        console.error(error); // Log the error for debugging
+        console.error(error);
         res.status(500).json({ error: 'Failed to fetch card ID' });
     }
 });
