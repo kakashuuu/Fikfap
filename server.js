@@ -1,72 +1,32 @@
 const express = require('express');
-const puppeteer = require('puppeteer-extra');
-const StealthPlugin = require('puppeteer-extra-plugin-stealth');
-const cors = require('cors');
-
-puppeteer.use(StealthPlugin());
+const puppeteer = require('puppeteer');
 
 const app = express();
-const port = process.env.PORT || 5000;
+const PORT = process.env.PORT || 3000;
 
-app.use(cors());
+async function fetchRandomCardId() {
+    const browser = await puppeteer.launch({ headless: true });
+    const page = await browser.newPage();
+    await page.goto('https://shoob.gg/cards/');
 
-// Function to extract real .mp4 video URLs from FikFap
-async function fetchMp4Urls() {
-    const url = 'https://fikfap.com/random'; // Fetch a random video
-
-    const browser = await puppeteer.launch({
-        headless: "new",
-        args: [
-            '--no-sandbox',
-            '--disable-setuid-sandbox',
-            '--disable-blink-features=AutomationControlled'
-        ]
+    const cardIds = await page.evaluate(() => {
+        return Array.from(document.querySelectorAll('.card a'))
+            .map(el => el.href.split('/').pop());
     });
 
-    try {
-        const page = await browser.newPage();
+    await browser.close();
 
-        // Spoof User-Agent and disable Puppeteer detection
-        await page.setUserAgent(
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-        );
-        await page.evaluateOnNewDocument(() => {
-            delete navigator.__proto__.webdriver;
-        });
-
-        await page.goto(url, { waitUntil: 'networkidle2' });
-
-        // Extract video source URL directly from the video element
-        const videoUrl = await page.evaluate(() => {
-            const videoElement = document.querySelector('video');
-            return videoElement ? videoElement.src : null;
-        });
-
-        await browser.close();
-
-        return videoUrl && videoUrl.startsWith('http') ? [videoUrl] : null;
-    } catch (error) {
-        console.error(`Error fetching MP4 URLs: ${error.message}`);
-        await browser.close();
-        return null;
-    }
+    if (cardIds.length === 0) throw new Error('No card IDs found');
+    return cardIds[Math.floor(Math.random() * cardIds.length)];
 }
 
-// API Route
-app.get('/video-links', async (req, res) => {
+app.get('/random-card', async (req, res) => {
     try {
-        const videoLinks = await fetchMp4Urls();
-        if (videoLinks) {
-            res.json({ videos: videoLinks });
-        } else {
-            res.status(500).json({ error: 'No full .mp4 videos found or site blocking bots.' });
-        }
+        const id = await fetchRandomCardId();
+        res.json({ id, url: `https://shoob.gg/cards/info/${id}` });
     } catch (error) {
-        res.status(500).json({ error: 'Server error.', details: error.message });
+        res.status(500).json({ error: 'Failed to fetch card ID' });
     }
 });
 
-// Start the server
-app.listen(port, () => {
-    console.log(`Server running at http://localhost:${port}`);
-});
+app.listen(PORT, () => console.log(`API running on port ${PORT}`));
